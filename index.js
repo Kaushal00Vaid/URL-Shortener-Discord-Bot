@@ -4,7 +4,7 @@ import URLModel from "./model.js";
 import { nanoid } from "nanoid";
 
 import express from "express";
-import { dotenv } from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 // connection to MongoDB
