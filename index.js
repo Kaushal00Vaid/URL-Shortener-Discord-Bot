@@ -2,6 +2,7 @@ import { Client, Events, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import { mongoose } from "mongoose";
 import URLModel from "./model.js";
 import { nanoid } from "nanoid";
+import { GoogleGenAI } from "@google/genai";
 
 import express from "express";
 import dotenv from "dotenv";
@@ -21,7 +22,11 @@ mongoose
 const app = express();
 const PORT = 8000;
 
-const client = new Client({
+// Gemini api
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+const client1 = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -29,7 +34,15 @@ const client = new Client({
   ],
 });
 
-client.on("messageCreate", (message) => {
+const client2 = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+client1.on("messageCreate", (message) => {
   if (message.author.bot) return; // Ignore bot messages
 
   if (message.content.startsWith("create")) {
@@ -42,7 +55,7 @@ client.on("messageCreate", (message) => {
   message.reply({ content: "Hi from Bot! - :)" });
 });
 
-client.on("interactionCreate", async (interaction) => {
+client1.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "ping") {
     interaction.reply("Pong!");
   }
@@ -76,6 +89,39 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+client2.on("interactionCreate", async (interaction) => {
+  let question = interaction.options.getString("question");
+
+  // making the prompt more specific
+  question +=
+    "\n(Respond in less than 1800 characters. " +
+    "Use short explanations. " +
+    "Format all codes(if any) properly within triple backticks. " +
+    "Avoid unnecessary lines. Keep it compact and Discord-friendly.)";
+
+  console.log(question);
+  try {
+    await interaction.deferReply(); // prevents timeouts
+
+    // getting response from gemini
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-001",
+      contents: question,
+    });
+
+    // making response safe for discord
+    const reply = response.text;
+    const safeReply =
+      reply.length > 1990
+        ? "❗ Response too long to send in Discord!"
+        : "```\n" + reply.replace(/```/g, "'''") + "\n```";
+    await interaction.editReply(safeReply);
+  } catch (err) {
+    console.log("Gemini Error: " + err);
+    await interaction.editReply("❌ Oops! Failed to get a response.");
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
@@ -91,4 +137,5 @@ app.get("/:shortID", async (req, res) => {
   return res.redirect(url.originalURl);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client1.login(process.env.DISCORD_TOKEN_BOT1);
+client2.login(process.env.DISCORD_TOKEN_BOT2);
