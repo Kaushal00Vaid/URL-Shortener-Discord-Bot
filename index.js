@@ -96,6 +96,7 @@ client2.on("interactionCreate", async (interaction) => {
   question +=
     "\n(Respond in less than 1800 characters. " +
     "Use short explanations. " +
+    "Add some linespaces for more readablity" +
     "Format all codes(if any) properly within triple backticks. " +
     "Avoid unnecessary lines. Keep it compact and Discord-friendly.)";
 
